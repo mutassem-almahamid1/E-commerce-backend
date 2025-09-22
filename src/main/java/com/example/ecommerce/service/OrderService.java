@@ -10,6 +10,9 @@ public interface OrderService {
     @Transactional
     OrderResponse createOrderFromCart(String email);
 
+    @Transactional
+    OrderResponse cancelOrder(Long orderId, String email);
+
     List<OrderResponse> getUserOrders(String email);
 
     List<OrderResponse> listAll();

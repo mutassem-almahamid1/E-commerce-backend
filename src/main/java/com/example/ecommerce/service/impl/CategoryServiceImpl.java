@@ -1,5 +1,7 @@
 package com.example.ecommerce.service.impl;
 
+import com.example.ecommerce.exception.excptions.DuplicateResourceException;
+import com.example.ecommerce.exception.excptions.ResourceNotFoundException;
 import com.example.ecommerce.mapper.CategoryMapper;
 import com.example.ecommerce.model.dto.request.CategoryRequest;
 import com.example.ecommerce.model.dto.response.CategoryResponse;
@@ -24,7 +26,7 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryResponse createCategory(CategoryRequest categoryRequest) {
         Optional<Category> category = categoryRepository.findCategoryByNameIgnoreCase(categoryRequest.getName());
         if (category.isPresent()){
-            throw new IllegalArgumentException("Category with name '" + categoryRequest.getName() + "' already exists.");
+            throw new DuplicateResourceException("Category with name '" + categoryRequest.getName() + "' already exists.");
         }
         Category category1 = CategoryMapper.toCategory(categoryRequest);
         Category savedCategory = categoryRepository.save(category1);
@@ -45,7 +47,7 @@ public class CategoryServiceImpl implements CategoryService {
         if (category.isPresent()){
             return CategoryMapper.toCategoryResponse(category.get());
         } else {
-            throw new IllegalArgumentException("Category with id '" + id + "' not found.");
+            throw new ResourceNotFoundException("Category with id '" + id + "' not found.");
         }
     }
 
@@ -65,7 +67,7 @@ public class CategoryServiceImpl implements CategoryService {
             categoryRepository.deleteById(id);
             return new MessageResponse("Category with id '" + id + "' has been deleted.");
         } else {
-            throw new IllegalArgumentException("Category with id '" + id + "' not found.");
+            throw new ResourceNotFoundException("Category with id '" + id + "' not found.");
         }
     }
 
@@ -79,7 +81,7 @@ public class CategoryServiceImpl implements CategoryService {
             Category updatedCategory = categoryRepository.save(categoryToUpdate);
             return CategoryMapper.toCategoryResponse(updatedCategory);
         } else {
-            throw new IllegalArgumentException("Category with id '" + id + "' not found.");
+            throw new ResourceNotFoundException("Category with id '" + id + "' not found.");
         }
     }
 }

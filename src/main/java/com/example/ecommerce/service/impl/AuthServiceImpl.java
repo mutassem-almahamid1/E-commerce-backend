@@ -1,6 +1,9 @@
 package com.example.ecommerce.service.impl;
 
 import com.example.ecommerce.config.JwtUtil;
+import com.example.ecommerce.exception.excptions.DuplicateResourceException;
+import com.example.ecommerce.exception.excptions.ResourceNotFoundException;
+import com.example.ecommerce.exception.excptions.UnauthorizedException;
 import com.example.ecommerce.mapper.UserMapper;
 import com.example.ecommerce.model.dto.request.TokenRefreshRequest;
 import com.example.ecommerce.model.dto.request.UserRegisterRequest;
@@ -11,7 +14,6 @@ import com.example.ecommerce.model.entity.User;
 import com.example.ecommerce.model.enums.Role;
 import com.example.ecommerce.repository.UserRepository;
 import com.example.ecommerce.service.AuthService;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,8 +22,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,14 +41,13 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
 
     @Transactional
     @Override
     public UserResponse register(UserRegisterRequest req) {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
-            throw new EntityNotFoundException("Email already registered");
+            throw new DuplicateResourceException("User", "email", req.getEmail());
         }
         User u = new User();
         u.setEmail(req.getEmail());
@@ -65,9 +64,10 @@ public class AuthServiceImpl implements AuthService {
     public JwtResponse login(UserRequestLogin req, HttpServletResponse response) {
 
         User user = userRepository.findByEmail(req.getEmail().trim())
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", req.getEmail()));
+
         if (!this.passwordEncoder.matches(req.getPassword().trim(), user.getPassword())) {
-            throw new EntityNotFoundException("Incorrect Password.");
+            throw new UnauthorizedException("Invalid credentials");
         }
         // Generate JWT token
         String jwt = jwtUtil.generateTokenWithRoles(user.getEmail(), List.of(user.getRole().name()));
@@ -94,15 +94,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
 
-
-
-
-
     @Transactional
     @Override
     public void logoutUser(String email, @NotNull HttpServletRequest request, HttpServletResponse response) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
         // Clear refresh token
         user.setRefreshToken(null);
@@ -152,14 +148,14 @@ public class AuthServiceImpl implements AuthService {
 
         // Find user by refresh token
         User user = userRepository.findByRefreshToken(requestRefreshToken)
-                .orElseThrow(() -> new BadCredentialsException("Refresh token is not in database!"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
         // Check if refresh token is expired
         if (user.getRefreshTokenExpiryDate().isBefore(LocalDateTime.now())) {
             user.setRefreshToken(null);
             user.setRefreshTokenExpiryDate(null);
             userRepository.save(user);
-            throw new BadCredentialsException("Refresh token was expired. Please make a new login request");
+            throw new UnauthorizedException("Refresh token expired. Please login again");
         }
 
         // Generate new JWT token

@@ -9,6 +9,7 @@ import com.example.ecommerce.service.UserService;
 import com.example.ecommerce.util.AssistantHelper;
 import com.example.ecommerce.util.MessageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,12 +19,11 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
-    private UserMapper userMapper;
 
     @Override
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User with id '" + id + "' not found."));
+                .orElseThrow(() -> new UsernameNotFoundException("User with id '" + id + "' not found."));
 
         return UserMapper.toUserResponse(user);
     }
@@ -31,7 +31,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User with email '" + email + "' not found."));
+                .orElseThrow(() -> new UsernameNotFoundException("User with email '" + email + "' not found."));
 
         return UserMapper.toUserResponse(user);
     }
@@ -47,7 +47,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public MessageResponse deleteUser(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User with email '" + email + "' not found."));
+                .orElseThrow(() -> new UsernameNotFoundException("User with email '" + email + "' not found."));
 
         userRepository.delete(user);
 
@@ -57,7 +57,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse updateUser(String email, UserRequestUpdate userRequestUpdate) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User with email '" + email + "' not found."));
+                .orElseThrow(() -> new UsernameNotFoundException("User with email '" + email + "' not found."));
 
             user.setFullName(userRequestUpdate.getFullName());
             user.setImageUrl(userRequestUpdate.getImageUrl());

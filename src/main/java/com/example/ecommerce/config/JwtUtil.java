@@ -56,7 +56,6 @@ public class JwtUtil {
 
 
 
-
     public String generateJwtToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
         return generateTokenFromUserName(userPrincipal.getUsername());

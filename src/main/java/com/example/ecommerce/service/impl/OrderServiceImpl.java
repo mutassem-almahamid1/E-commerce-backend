@@ -1,46 +1,55 @@
 package com.example.ecommerce.service.impl;
 
+import com.example.ecommerce.exception.InsufficientStockException;
+import com.example.ecommerce.exception.excptions.CartEmptyException;
+import com.example.ecommerce.exception.excptions.CustomException;
+import com.example.ecommerce.exception.excptions.ResourceNotFoundException;
 import com.example.ecommerce.mapper.OrderMapper;
 import com.example.ecommerce.model.dto.response.OrderResponse;
 import com.example.ecommerce.model.entity.*;
 import com.example.ecommerce.model.enums.OrderStatus;
 import com.example.ecommerce.repository.*;
-import com.example.ecommerce.repository.CartItemRepository;
-import com.example.ecommerce.repository.OrderItemRepository;
 import com.example.ecommerce.service.CartService;
 import com.example.ecommerce.service.OrderService;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
-     private final OrderRepository orderRepository;
-     private final CartRepository cartRepository;
-     private final ProductRepository productRepository;
-     private final OrderItemRepository orderItemRepository;
-     private final CartItemRepository cartItemRepository;
-     private final UserRepository userRepository;
-     private final CartService cartService;
+    private final OrderRepository orderRepository;
+    private final CartRepository cartRepository;
+    private final ProductRepository productRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final CartItemRepository cartItemRepository;
+    private final UserRepository userRepository;
+    private final CartService cartService;
+    private final ProductServiceImpl productService;
 
     @Transactional
     @Override
     public OrderResponse createOrderFromCart(String email) {
+
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+                .orElseThrow(() ->  new ResourceNotFoundException("User", "email", email));
+
         Cart cart = cartRepository.findByUser_Email(email)
-                .orElseThrow(() -> new EntityNotFoundException("Cart not found for user: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Cart", "user email", email));
 
         if (cart.getCartItems().isEmpty()) {
-            throw new IllegalStateException("Cannot create an order from an empty cart.");
+            throw new CartEmptyException("cannot create order from an empty cart.");
         }
+
+        validateAndReserveStock(cart);
 
         Order order = new Order();
         order.setUser(user);
@@ -49,33 +58,90 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal totalPrice = BigDecimal.ZERO;
 
-        Set<OrderItem> orderItems = new HashSet<>();
-        for (CartItem cartItem : cart.getCartItems()) {
-            Product product = cartItem.getProduct();
+        try {
+            for (CartItem cartItem : cart.getCartItems()) {
+                Product product = cartItem.getProduct();
+                int quantity = cartItem.getQuantity();
 
-            if (product.getStockQuantity() < cartItem.getQuantity()) {
-                throw new IllegalStateException("Not enough stock for product: " + product.getName());
+                productService.reduceStock(product.getId(), quantity);
+
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(order);
+                orderItem.setProduct(product);
+                orderItem.setQuantity(quantity);
+                orderItem.setPrice(product.getPrice());
+
+                order.getOrderItems().add(orderItem);
+                totalPrice = totalPrice.add(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
+
             }
 
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(order);
-            orderItem.setProduct(product);
-            orderItem.setQuantity(cartItem.getQuantity());
-            orderItem.setPrice(product.getPrice());
-            orderItems.add(orderItem);
+            order.setTotalPrice(totalPrice);
+            Order savedOrder = orderRepository.save(order);
 
-            totalPrice = totalPrice.add(product.getPrice().multiply(new BigDecimal(cartItem.getQuantity())));
+            cart.getCartItems().clear();
+            cartRepository.save(cart);
 
-            product.setStockQuantity(product.getStockQuantity() - cartItem.getQuantity());
-            productRepository.save(product);
+
+            return OrderMapper.toOrderResponse(savedOrder);
+
+        } catch (Exception e) {
+            restoreStockOnFailure(order);
+            throw e;
+        }
+    }
+
+
+    private void validateAndReserveStock(Cart cart) {
+
+        for (CartItem cartItem : cart.getCartItems()) {
+            Product product = cartItem.getProduct();
+            int requestedQuantity = cartItem.getQuantity();
+
+            Product freshProduct = productRepository.findById(product.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", product.getId()));
+
+            if (freshProduct.getStockQuantity() < requestedQuantity) {
+                throw new InsufficientStockException(freshProduct.getName(), requestedQuantity, freshProduct.getStockQuantity());
+            }
         }
 
-        order.setOrderItems(orderItems);
-        order.setTotalPrice(totalPrice);
+    }
 
+    private void restoreStockOnFailure(Order order) {
+        if (order.getOrderItems() != null) {
+            for (OrderItem orderItem : order.getOrderItems()) {
+                try {
+                    productService.restoreStock(orderItem.getProduct().getId(), orderItem.getQuantity());
+                } catch (Exception e) {
+                    throw e;
+                }
+            }
+        }
+    }
+
+    @Transactional
+    @Override
+    public OrderResponse cancelOrder(Long orderId, String email) {
+        log.info("Cancelling order: {} for user: {}", orderId, email);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (!order.getUser().getEmail().equals(email)) {
+            throw new ResourceNotFoundException("Order", "id", orderId);
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new CustomException("Only pending orders can be cancelled.", HttpStatus.MULTI_STATUS, "Only pending orders can be cancelled.");
+        }
+
+        for (OrderItem orderItem : order.getOrderItems()) {
+            productService.restoreStock(orderItem.getProduct().getId(), orderItem.getQuantity());
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
         Order savedOrder = orderRepository.save(order);
-
-        cartService.clearCart(email);
 
         return OrderMapper.toOrderResponse(savedOrder);
     }
@@ -92,3 +158,4 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findAll().stream().map(OrderMapper::toOrderResponse).toList();
     }
 }
+

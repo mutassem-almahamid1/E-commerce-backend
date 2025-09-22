@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -71,6 +72,62 @@ public class ProductController {
     public ResponseEntity<MessageResponse> updateProduct(@PathVariable Long id,
                                     @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.ok(productService.update(id, request));
+    }
+
+    @GetMapping("/search/advanced")
+    @PreAuthorize("isAuthenticated()")
+    public Page<ProductResponse> searchProductsAdvanced(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Boolean inStock,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productService.searchAdvanced(name, category, minPrice, maxPrice, inStock,
+                PageRequest.of(page, size));
+    }
+
+    @GetMapping("/search/by-name")
+    @PreAuthorize("isAuthenticated()")
+    public Page<ProductResponse> searchByName(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productService.searchByName(name, PageRequest.of(page, size));
+    }
+
+    @GetMapping("/search/by-price")
+    @PreAuthorize("isAuthenticated()")
+    public Page<ProductResponse> searchByPriceRange(
+            @RequestParam BigDecimal minPrice,
+            @RequestParam BigDecimal maxPrice,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productService.searchByPriceRange(minPrice, maxPrice, PageRequest.of(page, size));
+    }
+
+    @GetMapping("/available")
+    @PreAuthorize("isAuthenticated()")
+    public Page<ProductResponse> getAvailableProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productService.findAvailableProducts(PageRequest.of(page, size));
+    }
+
+    @GetMapping("/out-of-stock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Page<ProductResponse> getOutOfStockProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productService.findOutOfStockProducts(PageRequest.of(page, size));
+    }
+
+    @GetMapping("/low-stock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductResponse>> getLowStockProducts(
+            @RequestParam(defaultValue = "10") Integer threshold) {
+        return ResponseEntity.ok(productService.findLowStockProducts(threshold));
     }
 
 }
