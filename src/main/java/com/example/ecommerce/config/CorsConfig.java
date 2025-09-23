@@ -19,7 +19,8 @@ public class CorsConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",  // React development server
                 "http://127.0.0.1:3000",  // Alternative localhost
-                "http://localhost:3001"   // Backup port if needed
+                "http://localhost:3001",   // Backup port if needed
+                "https://zealous-bush-0e2516d03.2.azurestaticapps.net"
         ));
         
         // السماح بجميع HTTP methods المطلوبة
