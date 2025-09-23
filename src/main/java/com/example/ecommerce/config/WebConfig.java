@@ -13,7 +13,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:3000",
                         "http://127.0.0.1:3000",
-                        "http://localhost:3001"
+                        "http://localhost:3001",
+                        "https://zealous-bush-0e2516d03.2.azurestaticapps.net"
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
