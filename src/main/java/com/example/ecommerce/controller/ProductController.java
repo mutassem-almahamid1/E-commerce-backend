@@ -23,19 +23,19 @@ public class ProductController {
 
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ProductResponse> getProductById(@PathVariable Long id) {
         return ResponseEntity.ok(productService.getProductById(id));
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ProductResponse> getProductByName(@RequestParam String name) {
         return ResponseEntity.ok(productService.getProductByName(name));
     }
 
     @GetMapping("/search")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public Page<ProductResponse> searchProducts(@RequestParam String name,
                                                 @RequestParam String category,
                                                 @RequestParam(defaultValue = "0") int page,
@@ -44,13 +44,13 @@ public class ProductController {
     }
 
     @GetMapping("/category/{name}")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ProductResponse>> getProductByCategory(@PathVariable String name) {
         return ResponseEntity.ok(productService.getProductByCategory(name));
     }
 
     @GetMapping("/all")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ProductResponse>> getAllProducts() {
         return ResponseEntity.ok(productService.getAllProducts());
     }
@@ -75,7 +75,7 @@ public class ProductController {
     }
 
     @GetMapping("/search/advanced")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public Page<ProductResponse> searchProductsAdvanced(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String category,
@@ -89,7 +89,7 @@ public class ProductController {
     }
 
     @GetMapping("/search/by-name")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public Page<ProductResponse> searchByName(
             @RequestParam String name,
             @RequestParam(defaultValue = "0") int page,
@@ -98,7 +98,7 @@ public class ProductController {
     }
 
     @GetMapping("/search/by-price")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public Page<ProductResponse> searchByPriceRange(
             @RequestParam BigDecimal minPrice,
             @RequestParam BigDecimal maxPrice,
@@ -108,7 +108,7 @@ public class ProductController {
     }
 
     @GetMapping("/available")
-    @PreAuthorize("isAuthenticated()")
+//    @PreAuthorize("isAuthenticated()")
     public Page<ProductResponse> getAvailableProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
