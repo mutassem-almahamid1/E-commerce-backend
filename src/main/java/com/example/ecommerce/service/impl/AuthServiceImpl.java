@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -122,6 +123,24 @@ public class AuthServiceImpl implements AuthService {
             log.info("No cookies found to clear.");
         }
 
+        // Also explicitly expire auth cookies with matching attributes for cross-site deletion
+        ResponseCookie deleteAccess = ResponseCookie.from("access_token", "")
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .maxAge(0)
+                .build();
+        ResponseCookie deleteRefresh = ResponseCookie.from("refresh_token", "")
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, deleteAccess.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, deleteRefresh.toString());
+
         // Remove the Authorization header
         response.setHeader(HttpHeaders.AUTHORIZATION, "");
         SecurityContextHolder.clearContext();
@@ -129,15 +148,28 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void addTokenToHeader(HttpServletResponse response, String jwtToken, String refreshToken) {
-        Cookie cookie = new Cookie("access_token", jwtToken);
-        cookie.setMaxAge(cookieExpiration);
-        cookie.setPath("/");
-        response.addCookie(cookie);
+        // Use ResponseCookie to set SameSite=None; Secure for cross-site requests from Azure Static Web Apps
+        // Convert configured expiration (ms) to seconds if it looks like milliseconds
+        int maxAgeSeconds = cookieExpiration > 1000000 ? cookieExpiration / 1000 : cookieExpiration;
 
-        Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
-        refreshCookie.setMaxAge(cookieExpiration);
-        refreshCookie.setPath("/");
-        response.addCookie(refreshCookie);
+        ResponseCookie accessCookie = ResponseCookie.from("access_token", jwtToken)
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .maxAge(maxAgeSeconds)
+                .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", refreshToken)
+                .path("/")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .maxAge(maxAgeSeconds)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         response.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken);
     }
 

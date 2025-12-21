@@ -1,6 +1,6 @@
 package com.example.ecommerce.service.impl;
 
-import com.example.ecommerce.exception.InsufficientStockException;
+import com.example.ecommerce.exception.excptions.InsufficientStockException;
 import com.example.ecommerce.exception.excptions.CartEmptyException;
 import com.example.ecommerce.exception.excptions.CustomException;
 import com.example.ecommerce.exception.excptions.ResourceNotFoundException;
@@ -45,7 +45,7 @@ public class OrderServiceImpl implements OrderService {
         Cart cart = cartRepository.findByUser_Email(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart", "user email", email));
 
-        if (cart.getCartItems().isEmpty()) {
+        if (cart.getCartItems() == null || cart.getCartItems().isEmpty()) {
             throw new CartEmptyException("cannot create order from an empty cart.");
         }
 
@@ -54,14 +54,28 @@ public class OrderServiceImpl implements OrderService {
         Order order = new Order();
         order.setUser(user);
         order.setStatus(OrderStatus.PENDING);
-        order.setOrderItems(new HashSet<>());
+        order.setOrderItems(new java.util.HashSet<>());
 
         BigDecimal totalPrice = BigDecimal.ZERO;
 
         try {
             for (CartItem cartItem : cart.getCartItems()) {
+                if (cartItem == null) {
+                    continue;
+                }
                 Product product = cartItem.getProduct();
-                int quantity = cartItem.getQuantity();
+                if (product == null) {
+                    throw new ResourceNotFoundException("Product", "cartItem", cartItem.getId());
+                }
+                Integer qtyObj = cartItem.getQuantity();
+                int quantity = (qtyObj == null ? 0 : qtyObj);
+                if (quantity <= 0) {
+                    throw new com.example.ecommerce.exception.excptions.BadRequestException("Invalid quantity for product: " + product.getId());
+                }
+
+                if (product.getPrice() == null) {
+                    throw new com.example.ecommerce.exception.excptions.BadRequestException("Product price is not set for product: " + product.getId());
+                }
 
                 productService.reduceStock(product.getId(), quantity);
 
@@ -95,8 +109,16 @@ public class OrderServiceImpl implements OrderService {
     private void validateAndReserveStock(Cart cart) {
 
         for (CartItem cartItem : cart.getCartItems()) {
+            if (cartItem == null) continue;
             Product product = cartItem.getProduct();
-            int requestedQuantity = cartItem.getQuantity();
+            if (product == null) {
+                throw new ResourceNotFoundException("Product", "cartItem", cartItem.getId());
+            }
+            Integer qtyObj = cartItem.getQuantity();
+            int requestedQuantity = (qtyObj == null ? 0 : qtyObj);
+            if (requestedQuantity <= 0) {
+                throw new com.example.ecommerce.exception.excptions.BadRequestException("Invalid quantity for product: " + product.getId());
+            }
 
             Product freshProduct = productRepository.findById(product.getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", "id", product.getId()));
@@ -148,7 +170,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<OrderResponse> getUserOrders(String email) {
-        return orderRepository.findByUserEmail(email).stream()
+        return orderRepository.findByUser_Email(email).stream()
                 .map(OrderMapper::toOrderResponse)
                 .toList();
     }
@@ -158,4 +180,3 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findAll().stream().map(OrderMapper::toOrderResponse).toList();
     }
 }
-

@@ -1,7 +1,7 @@
 package com.example.ecommerce.service.impl;
 
-import com.example.ecommerce.exception.InsufficientStockException;
 import com.example.ecommerce.exception.excptions.DuplicateResourceException;
+import com.example.ecommerce.exception.excptions.InsufficientStockException;
 import com.example.ecommerce.exception.excptions.ResourceNotFoundException;
 import com.example.ecommerce.mapper.ProductMapper;
 import com.example.ecommerce.model.dto.request.ProductRequest;
