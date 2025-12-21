@@ -19,7 +19,7 @@ public class CorsConfig {
                 "http://localhost:3000",  // React development server
                 "http://127.0.0.1:3000",  // Alternative localhost
                 "http://localhost:3001",   // Backup port if needed
-                "https://zealous-bush-0e2516d03.2.azurestaticapps.net"
+                "https://ecommerce-frontend-eight-amber.vercel.app"
         ));
 
         configuration.setAllowedMethods(Arrays.asList(
